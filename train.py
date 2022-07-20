@@ -95,7 +95,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     ### Setup for training
 
-    env = SparseEnvWrapper(gym.make(env_name, **env_config), max_timesteps=200)
+    env = SparseEnvWrapper(gym.make(env_name, **env_config), 9, max_timesteps=10)
 
     losses = []
     rewards = []
