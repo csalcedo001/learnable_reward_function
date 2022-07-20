@@ -9,6 +9,14 @@ class SparseEnvWrapper(gym.Wrapper):
         self.max_timesteps = max_timesteps
         self.reward_pass_grade = reward_pass_grade
         self.cumulative_reward = 0
+    
+    def reset(self):
+        state = self.env.reset()
+
+        self.timestep = 0
+        self.cumulative_reward = 0
+
+        return state
         
     def step(self, action):
         next_state, reward, done, info = self.env.step(action)
@@ -28,10 +36,5 @@ class SparseEnvWrapper(gym.Wrapper):
                 reward = -1
         else:
             reward = 0
-        
-        # Prepare env for next step in finished environment
-        if done:
-            self.timestep = 1
-            self.cumulative_reward = 0
 
         return next_state, reward, done, info
