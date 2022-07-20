@@ -10,6 +10,7 @@ from xlab.utils import merge_dicts
 from parser import get_parser
 from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
+from env import SparseEnvWrapper
 
 
 
@@ -94,7 +95,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     ### Setup for training
 
-    env = gym.make(env_name, **env_config)
+    env = SparseEnvWrapper(gym.make(env_name, **env_config), max_timesteps=200)
 
     losses = []
     rewards = []
