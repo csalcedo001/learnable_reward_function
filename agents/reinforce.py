@@ -9,8 +9,12 @@ from .agent import Agent
 
 
 class ReinforceAgent(Agent):
-    def __init__(self, env, gamma=0.99, lr=0.01):
-        super(ReinforceAgent, self).__init__(env)
+    def __init__(self, env, gamma=0.99, lr=0.01, optimizer=None):
+        super().__init__(env)
+
+        self.lr = lr
+        self.gamma = gamma
+
         
         self.discrete_actions = type(env.action_space) == spaces.Discrete
 
@@ -23,9 +27,6 @@ class ReinforceAgent(Agent):
 
         
         n_h = 64
-
-        self.gamma = gamma
-
         layers = [
             nn.Linear(n_in, n_h),
             nn.ReLU(),
@@ -43,7 +44,8 @@ class ReinforceAgent(Agent):
             self.fc_mean = nn.Linear(n_h, n_out)
             self.fc_std = nn.Sequential(nn.Linear(n_h, n_out), nn.Softplus())
 
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        if optimizer == None:
+            self.optimizer = optim.Adam(self.parameters(), lr=lr)
 
         self.onpolicy_reset()
 
@@ -88,7 +90,7 @@ class ReinforceAgent(Agent):
     def train_start(self, state):
         self.onpolicy_reset()
 
-    def train_step(self, state, reward):
+    def train_step(self, state, action, next_state, reward):
         self.rewards.append(reward)
     
     def train_end(self, state):
@@ -117,3 +119,6 @@ class ReinforceAgent(Agent):
         self.optimizer.step()
 
         return loss.item()
+    
+    def set_optimizer(self, optimizer):
+        self.optimizer = optimizer

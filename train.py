@@ -10,6 +10,7 @@ from xlab.utils import merge_dicts
 from parser import get_parser
 from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
+from agents.reward_learning_agent import RewardLearningAgent
 from env import SparseEnvWrapper
 
 
@@ -95,12 +96,17 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     ### Setup for training
 
-    env = SparseEnvWrapper(gym.make(env_name, **env_config), 9, max_timesteps=10)
+    env = SparseEnvWrapper(
+        gym.make(env_name, **env_config),
+        10,
+        max_timesteps=200
+    )
 
     losses = []
     rewards = []
     for sample in range(num_samples):
         agent = agent_class(env, **agent_config)
+        agent = RewardLearningAgent(agent, env)
 
         if checkpoint != None:
             agent.load(checkpoint_dir)
@@ -119,10 +125,12 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
             for i in range(max_iter):
                 a = agent.act(s)
 
-                s, r, done, _ = env.step(a)
+                next_s, r, done, _ = env.step(a)
                 total_reward += r
 
-                agent.train_step(s, r)
+                agent.train_step(s, a, next_s, r)
+
+                s = next_s
 
                 if not no_render:
                     env.render()
@@ -137,7 +145,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
             sample_losses.append(loss)
             sample_rewards.append(total_reward)
 
-        agent.save(dir)
+        # agent.save(dir)
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)

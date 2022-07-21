@@ -22,7 +22,7 @@ class Agent(nn.Module):
     def train_start(self, state):
         raise NotImplementedError
 
-    def train_step(self, state, reward):
+    def train_step(self, state, action, next_state, reward):
         raise NotImplementedError
     
     def train_end(self, state):
