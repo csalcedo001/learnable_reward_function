@@ -71,14 +71,7 @@ class RewardLearningAgent(Agent):
         return self.agent.train_end(state)
     
     def save(self, dict_path):
-        path = os.path.join(dict_path, 'model.pt')
-        torch.save(self.agent.state_dict(), path)
+        self._save(dict_path)
     
     def load(self, dict_path):
-        path = os.path.join(dict_path, 'model.pt')
-
-        if not os.path.exists(path):
-            err_msg = "Error: no checkpoint '{}' in directory '{}'."
-            raise Exception(err_msg.format('model.pt', dict_path))
-        
-        self.load_state_dict(torch.load(path))
+        self._load(dict_path)

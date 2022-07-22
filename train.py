@@ -116,10 +116,11 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
         sample_losses = []
         sample_rewards = []
 
-        for stage in range(10, 500, 10):
+        reward_pass_grade = 10
+        for stage in range(10):
             env = SparseEnvWrapper(
                 gym.make(env_name, **env_config),
-                stage,
+                reward_pass_grade=reward_pass_grade,
                 max_timesteps=500
             )
 
@@ -147,16 +148,19 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                         break
                 
                 loss = agent.train_end(s)
-                print('Episode/stage ({}/{}). Loss: {:.5f}. Sparse reward: {:.0f}. Real reward: {:.0f}. Intrinsic reward: {:.2f}'.format(
+                print('Episode/stage ({}/{}). Loss: {:.5f}. Rs: {:.0f}. Rp: {:.0f}. Ri: {:.2f}'.format(
                     episode, stage, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
                 
                 sample_losses.append(loss)
                 sample_rewards.append(total_reward)
 
-        # agent.save(dir)
+            reward_pass_grade = 10 * (2 + stage)
+
+            agent.save(dir)
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)
+
 
     losses = np.array(losses)
     reward = np.array(rewards)
