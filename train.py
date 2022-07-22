@@ -98,8 +98,8 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     env = SparseEnvWrapper(
         gym.make(env_name, **env_config),
-        9,
-        max_timesteps=200
+        10,
+        max_timesteps=500
     )
 
     losses = []
@@ -115,35 +115,43 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
         sample_losses = []
         sample_rewards = []
-        for episode in range(episodes):
-            s = env.reset()
-            done = False
 
-            agent.train_start(s)
+        for stage in range(10, 500, 10):
+            env = SparseEnvWrapper(
+                gym.make(env_name, **env_config),
+                stage,
+                max_timesteps=500
+            )
 
-            total_reward = 0.
-            for i in range(max_iter):
-                a = agent.act(s)
+            for episode in range(episodes):
+                s = env.reset()
+                done = False
 
-                next_s, r, done, _ = env.step(a)
-                total_reward += r
+                agent.train_start(s)
 
-                agent.train_step(s, a, next_s, r)
+                total_reward = 0.
+                for i in range(max_iter):
+                    a = agent.act(s)
 
-                s = next_s
+                    next_s, r, done, _ = env.step(a)
+                    total_reward += r
 
-                if not no_render:
-                    env.render()
+                    agent.train_step(s, a, next_s, r)
 
-                if done:
-                    break
-            
-            loss = agent.train_end(s)
-            print('Episode/sample ({}/{}). Loss: {:.5f}. Sparse reward: {:.0f}. Real reward: {:.0f}. Intrinsic reward: {:.2f}'.format(
-                episode, sample, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
-            
-            sample_losses.append(loss)
-            sample_rewards.append(total_reward)
+                    s = next_s
+
+                    if not no_render:
+                        env.render()
+
+                    if done:
+                        break
+                
+                loss = agent.train_end(s)
+                print('Episode/stage ({}/{}). Loss: {:.5f}. Sparse reward: {:.0f}. Real reward: {:.0f}. Intrinsic reward: {:.2f}'.format(
+                    episode, stage, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
+                
+                sample_losses.append(loss)
+                sample_rewards.append(total_reward)
 
         # agent.save(dir)
 
