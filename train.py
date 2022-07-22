@@ -98,7 +98,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     env = SparseEnvWrapper(
         gym.make(env_name, **env_config),
-        10,
+        9,
         max_timesteps=200
     )
 
@@ -139,8 +139,8 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                     break
             
             loss = agent.train_end(s)
-            print('Episode/sample ({}/{}). Loss: {}. Reward: {}'.format(
-                episode, sample, loss, total_reward))
+            print('Episode/sample ({}/{}). Loss: {:.5f}. Sparse reward: {:.0f}. Real reward: {:.0f}. Intrinsic reward: {:.2f}'.format(
+                episode, sample, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
             
             sample_losses.append(loss)
             sample_rewards.append(total_reward)

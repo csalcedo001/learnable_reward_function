@@ -8,7 +8,7 @@ from .agent import Agent
 
 
 class RewardLearningAgent(Agent):
-    def __init__(self, agent, env, w_rp=1., w_ri=10.):
+    def __init__(self, agent, env, w_rp=10., w_ri=0.1):
         super().__init__(env)
 
         self.w_rp = w_rp
@@ -31,10 +31,14 @@ class RewardLearningAgent(Agent):
         self.reward_model = nn.Sequential(*layers)
 
         agent.optimizer.add_param_group({
-            'params': self.reward_model.parameters()
+            'params': self.reward_model.parameters(),
+            'lr': 0.00001
         })
 
         self.agent = agent
+        self.cumulative_rp = 0
+        self.cumulative_ri = 0
+        self.cumulative_reward = 0
 
     def forward(self, state):
         return self.agent.forward(state)
@@ -43,6 +47,10 @@ class RewardLearningAgent(Agent):
         return self.agent.act(state)
     
     def train_start(self, state):
+        self.cumulative_rp = 0
+        self.cumulative_ri = 0
+        self.cumulative_reward = 0
+
         self.agent.train_start(state)
 
     def train_step(self, state, action, next_state, reward):
@@ -52,6 +60,10 @@ class RewardLearningAgent(Agent):
         ri = self.reward_model(s)
 
         reward = self.w_rp * rp + self.w_ri * ri
+
+        self.cumulative_rp += rp
+        self.cumulative_ri += ri.item()
+        self.cumulative_reward += reward
 
         self.agent.train_step(state, action, next_state, reward)
     
