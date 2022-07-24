@@ -38,12 +38,12 @@ class Agent(nn.Module):
     
 
     ### Functions 
-    def _save(self, dict_path):
-        path = os.path.join(dict_path, 'model.pt')
+    def _save(self, dict_path, name='model'):
+        path = os.path.join(dict_path, name + '.pt')
         torch.save(self.state_dict(), path)
 
-    def _load(self, dict_path):
-        path = os.path.join(dict_path, 'model.pt')
+    def _load(self, dict_path, name='model'):
+        path = os.path.join(dict_path, name + '.pt')
 
         if not os.path.exists(path):
             err_msg = "Error: no checkpoint '{}' in directory '{}'."

@@ -96,8 +96,8 @@ class ReinforceAgent(Agent):
     def train_end(self, state):
         return self.optimize()
     
-    def save(self, save_dict):
-        self._save(save_dict)
+    def save(self, save_dict, name='model'):
+        self._save(save_dict, name='model')
     
     def load(self, save_dict):
         self._load(save_dict)

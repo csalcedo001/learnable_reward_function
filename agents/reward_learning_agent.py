@@ -70,8 +70,8 @@ class RewardLearningAgent(Agent):
     def train_end(self, state):
         return self.agent.train_end(state)
     
-    def save(self, dict_path):
-        self._save(dict_path)
+    def save(self, dict_path, name='model'):
+        self._save(dict_path, name=name)
     
-    def load(self, dict_path):
-        self._load(dict_path)
+    def load(self, dict_path, name='model'):
+        self._load(dict_path, name=name)

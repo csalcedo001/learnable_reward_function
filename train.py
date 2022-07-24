@@ -153,10 +153,10 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                 
                 sample_losses.append(loss)
                 sample_rewards.append(total_reward)
-
+            
             reward_pass_grade = 10 * (2 + stage)
 
-            agent.save(dir)
+            agent.save(dir, 'model_' + str(stage))
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)
