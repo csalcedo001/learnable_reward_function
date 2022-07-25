@@ -64,7 +64,7 @@ e.args['agent_config'] = agent_config
 
 model_dir = e.get_dir()
 
-agent.load_state_dict(torch.load(os.path.join(model_dir, 'model_9.pt')))
+agent.load_state_dict(torch.load(os.path.join(model_dir, 'model.pt')))
 
 
 num_pix = 256
@@ -101,3 +101,9 @@ plt.xlabel('Cart position')
 plt.ylabel('Pole angle')
 plt.savefig(os.path.join(plots_dir, 'heatmap_reward.png'))
 plt.close(fig)
+
+min_r = data.min()
+max_r = data.max()
+
+print('Min reward: {}'.format(min_r))
+print('Max reward: {}'.format(max_r))

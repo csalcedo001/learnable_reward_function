@@ -117,7 +117,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
         sample_rewards = []
 
         reward_pass_grade = 10
-        for stage in range(10):
+        for stage in range(20):
             env = SparseEnvWrapper(
                 gym.make(env_name, **env_config),
                 reward_pass_grade=reward_pass_grade,
@@ -148,7 +148,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                         break
                 
                 loss = agent.train_end(s)
-                print('Episode/stage ({}/{}). Loss: {:.5f}. Rs: {:.0f}. Rp: {:.0f}. Ri: {:.2f}'.format(
+                print('Episode/stage ({:4}/{}). Loss: {:9.3f}. Rs: {:3.0f}. Rp: {:4.0f}. Ri: {:3.2f}'.format(
                     episode, stage, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
                 
                 sample_losses.append(loss)
@@ -157,6 +157,8 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
             reward_pass_grade = 10 * (2 + stage)
 
             agent.save(dir, 'model_' + str(stage))
+        
+        agent.save(dir, 'model')
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)
