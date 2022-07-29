@@ -148,7 +148,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                         break
                 
                 loss = agent.train_end(s)
-                print('Episode/stage ({:4}/{}). Loss: {:9.3f}. Rs: {:3.0f}. Rp: {:4.0f}. Ri: {:3.2f}'.format(
+                print('Episode/stage ({:4}/{}). Loss: {:9.3f}. Rs: {:3.0f}. Rp: {:4.0f}. Ri: {:4.2f}'.format(
                     episode, stage, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
                 
                 sample_losses.append(loss)

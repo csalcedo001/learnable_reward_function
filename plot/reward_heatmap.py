@@ -99,6 +99,7 @@ plt.imshow(
 plt.title('Learnt reward for CartPole environment')
 plt.xlabel('Cart position')
 plt.ylabel('Pole angle')
+plt.colorbar()
 plt.savefig(os.path.join(plots_dir, 'heatmap_reward.png'))
 plt.close(fig)
 
