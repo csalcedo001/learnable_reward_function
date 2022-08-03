@@ -1,5 +1,3 @@
-from reward_transforms.reward_transform import RewardTransform
-
 class SparseRewardTransform():
     def __init__(self, reward_pass_grade, max_timesteps=None):
         self.timestep = 0

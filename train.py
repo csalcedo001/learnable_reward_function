@@ -175,12 +175,12 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
             
             reward_pass_grade = 10 * (2 + stage)
 
-            torch.save(agent, os.path.join(dir, 'agent_model_' + str(stage) + '.pt'))
-            torch.save(lr_transform, os.path.join(dir, 'reward_model_' + str(stage) + '.pt'))
+            torch.save(agent.state_dict(), os.path.join(dir, 'agent_model_' + str(stage) + '.pt'))
+            torch.save(lr_transform.state_dict(), os.path.join(dir, 'reward_model_' + str(stage) + '.pt'))
         
 
-        torch.save(agent, os.path.join(dir, 'agent_model.pt'))
-        torch.save(lr_transform, os.path.join(dir, 'reward_model.pt'))
+        torch.save(agent.state_dict(), os.path.join(dir, 'agent_model.pt'))
+        torch.save(lr_transform.state_dict(), os.path.join(dir, 'reward_model.pt'))
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
-from agents.reward_learning_agent import RewardLearningAgent
+from reward_transforms.learnable_reward_transform import LearnableRewardTransform
 
 
 
@@ -22,6 +22,9 @@ parser.add_argument(
 parser.add_argument(
     '--agent-config',
     type=get_config_from_string, default={})
+parser.add_argument(
+    '--episodes',
+    type=int, default=500)
 
 args = parser.parse_args()
 
@@ -46,25 +49,26 @@ if agent_name not in agent_name_type_map:
 
 agent_class = agent_name_type_map[agent_name]
 
-agent = ReinforceAgent(env, **agent_config)
-agent = RewardLearningAgent(agent, env)
+lr_transform = LearnableRewardTransform(env.observation_space)
 
 
 
 e = exp.Experiment(
     executable='train.py',
     req_args={
-        'agent': agent_name
+        'agent': agent_name,
+        'episodes': args.episodes
     },
-    command='python {executable} {agent} --episodes 500 --no-render'
+    command='python {executable} {agent} --episodes {episodes} --no-render'
 )
 
-e.args['episodes'] = 500
+e.args['episodes'] = args.episodes
 e.args['agent_config'] = agent_config
 
 model_dir = e.get_dir()
 
-agent.load_state_dict(torch.load(os.path.join(model_dir, 'model.pt')))
+torch.load(os.path.join(model_dir, 'reward_model.pt'))
+lr_transform.load_state_dict(torch.load(os.path.join(model_dir, 'reward_model.pt')))
 
 
 num_pix = 256
@@ -72,6 +76,7 @@ pos_init = -10
 pos_end = 10
 ang_init = -10
 ang_end = 10
+fixed_velocity = True
 
 data = np.zeros((num_pix, num_pix))
 pos_l = np.arange(num_pix) / (num_pix - 1) * (pos_end - pos_init) + pos_init
@@ -81,9 +86,12 @@ for i in range(num_pix):
     for j in range(num_pix):
         pos = pos_l[j]
 
-        x = torch.Tensor([0, pos, 0, ang])
+        if fixed_velocity:
+            x = torch.Tensor([pos, 0, ang, 0])
+        else:
+            x = torch.Tensor([0, pos, 0, ang])
 
-        data[i, j] = agent.reward_model(x)
+        data[i, j] = lr_transform.model(x)
 
 
 plots_dir = 'figures'
