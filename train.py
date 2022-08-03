@@ -11,7 +11,7 @@ from parser import get_parser
 from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
 from agents.reward_learning_agent import RewardLearningAgent
-from env import SparseEnvWrapper
+from reward_transforms.sparse_reward_transform import SparseRewardTransform
 
 
 
@@ -96,11 +96,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     ### Setup for training
 
-    env = SparseEnvWrapper(
-        gym.make(env_name, **env_config),
-        10,
-        max_timesteps=500
-    )
+    env = gym.make(env_name, **env_config)
 
     losses = []
     rewards = []
@@ -118,14 +114,15 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
         reward_pass_grade = 10
         for stage in range(20):
-            env = SparseEnvWrapper(
-                gym.make(env_name, **env_config),
+            sr_transform = SparseRewardTransform(
                 reward_pass_grade=reward_pass_grade,
                 max_timesteps=500
             )
 
             for episode in range(episodes):
                 s = env.reset()
+                sr_transform.reset()
+
                 done = False
 
                 agent.train_start(s)
@@ -135,6 +132,8 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                     a = agent.act(s)
 
                     next_s, r, done, _ = env.step(a)
+                    r, done = sr_transform(r, done)
+
                     total_reward += r
 
                     agent.train_step(s, a, next_s, r)
@@ -149,7 +148,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                 
                 loss = agent.train_end(s)
                 print('Episode/stage ({:4}/{}). Loss: {:9.3f}. Rs: {:3.0f}. Rp: {:4.0f}. Ri: {:4.2f}'.format(
-                    episode, stage, loss, total_reward, env.cumulative_reward, agent.cumulative_ri))
+                    episode, stage, loss, total_reward, sr_transform.cumulative_reward, agent.cumulative_ri))
                 
                 sample_losses.append(loss)
                 sample_rewards.append(total_reward)
