@@ -87,11 +87,14 @@ class ReinforceAgent(Agent):
 
         return action.numpy()
     
+    def append_reward(self, reward):
+        self.rewards.append(reward)
+    
     def train_start(self, state):
         self.onpolicy_reset()
 
     def train_step(self, state, action, next_state, reward):
-        self.rewards.append(reward)
+        self.append_reward(reward)
     
     def train_end(self, state):
         return self.optimize()
@@ -107,12 +110,17 @@ class ReinforceAgent(Agent):
         self.log_probs = []
         self.rewards = []
     
-    def optimize(self):
+    def compute_loss(self):
         loss = 0.
         rets = 0.
         for t in reversed(range(len(self.rewards))):
             rets = self.rewards[t] + self.gamma * rets
             loss += -rets * self.log_probs[t]
+        
+        return loss
+
+    def optimize(self):
+        loss = self.compute_loss()
 
         self.optimizer.zero_grad()
         loss.backward()

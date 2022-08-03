@@ -1,7 +1,8 @@
 import os
 
 import gym
-from ray import tune
+import torch
+from torch import optim
 import pickle
 import numpy as np
 import xlab.experiment as exp
@@ -12,6 +13,7 @@ from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
 from agents.reward_learning_agent import RewardLearningAgent
 from reward_transforms.sparse_reward_transform import SparseRewardTransform
+from reward_transforms.learnable_reward_transform import LearnableRewardTransform
 
 
 
@@ -102,12 +104,19 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
     rewards = []
     for sample in range(num_samples):
         agent = agent_class(env, **agent_config)
-        agent = RewardLearningAgent(agent, env)
+        lr_transform = LearnableRewardTransform(env.observation_space)
+
+        optimizer = optim.Adam(agent.parameters(), lr=0.01)
+        optimizer.add_param_group({
+            'params': lr_transform.parameters(),
+            'lr': 0.00001
+        })
 
         if checkpoint != None:
             agent.load(checkpoint_dir)
 
         agent.train()
+        lr_transform.train()
 
         sample_losses = []
         sample_rewards = []
@@ -122,10 +131,11 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
             for episode in range(episodes):
                 s = env.reset()
                 sr_transform.reset()
+                lr_transform.reset()
 
                 done = False
 
-                agent.train_start(s)
+                agent.onpolicy_reset()
 
                 total_reward = 0.
                 for i in range(max_iter):
@@ -135,8 +145,11 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                     r, done = sr_transform(r, done)
 
                     total_reward += r
+                    
+                    r = lr_transform(r, s)
 
-                    agent.train_step(s, a, next_s, r)
+
+                    agent.append_reward(r)
 
                     s = next_s
 
@@ -146,18 +159,28 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                     if done:
                         break
                 
-                loss = agent.train_end(s)
+                loss = agent.compute_loss()
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                loss = loss.item()
+
                 print('Episode/stage ({:4}/{}). Loss: {:9.3f}. Rs: {:3.0f}. Rp: {:4.0f}. Ri: {:4.2f}'.format(
-                    episode, stage, loss, total_reward, sr_transform.cumulative_reward, agent.cumulative_ri))
+                    episode, stage, loss, total_reward, sr_transform.cumulative_reward, lr_transform.cumulative_ri))
                 
                 sample_losses.append(loss)
                 sample_rewards.append(total_reward)
             
             reward_pass_grade = 10 * (2 + stage)
 
-            agent.save(dir, 'model_' + str(stage))
+            torch.save(agent, os.path.join(dir, 'agent_model_' + str(stage) + '.pt'))
+            torch.save(lr_transform, os.path.join(dir, 'reward_model_' + str(stage) + '.pt'))
         
-        agent.save(dir, 'model')
+
+        torch.save(agent, os.path.join(dir, 'agent_model.pt'))
+        torch.save(lr_transform, os.path.join(dir, 'reward_model.pt'))
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)
