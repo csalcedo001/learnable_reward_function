@@ -2,6 +2,7 @@ import os
 
 import gym
 import torch
+from torch import optim
 import pickle
 import numpy as np
 import xlab.experiment as exp
@@ -11,7 +12,8 @@ from parser import get_parser
 from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
 from agents.reward_learning_agent import RewardLearningAgent
-from env import SparseEnvWrapper
+from reward_transforms.sparse_reward_transform import SparseRewardTransform
+from reward_transforms.learnable_reward_transform import LearnableRewardTransform
 
 
 
@@ -98,7 +100,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
         command='python {executable} {agent} --episodes {episodes} --no-render'
     )
 
-    e.args['episodes'] = 500
+    e.args['episodes'] = 100
     e.args['agent_config'] = agent_config
 
     model_dir = e.get_dir()
@@ -107,27 +109,24 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
     ### Setup for training
 
-    env = SparseEnvWrapper(
-        gym.make(env_name, **env_config),
+    env = gym.make(env_name, **env_config)
+    sr_transform = SparseRewardTransform(
         reward_pass_grade=100,
         max_timesteps=500
     )
 
-    ref_agent = agent_class(env, **agent_config)
-    ref_agent = RewardLearningAgent(ref_agent, env)
-    ref_agent.load_state_dict(torch.load(os.path.join(model_dir, 'model_9.pt')))
-    reward_model = ref_agent.reward_model
-
-
+    lr_transform = LearnableRewardTransform(env.observation_space)
+    lr_transform.load_state_dict(torch.load(os.path.join(model_dir, 'reward_model.pt')))
+    lr_transform.eval()
 
     losses = []
     rewards = []
     for sample in range(num_samples):
         agent = agent_class(env, **agent_config)
-        agent.load_state_dict(ref_agent.agent.state_dict())
-
         if checkpoint != None:
             agent.load(checkpoint_dir)
+
+        optimizer = optim.Adam(agent.parameters(), lr=0.01)
 
         agent.train()
 
@@ -138,26 +137,33 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
         for episode in range(episodes):
             s = env.reset()
+            sr_transform.reset()
+            lr_transform.reset()
+
             done = False
 
-            agent.train_start(s)
+            agent.onpolicy_reset()
 
+            total_default_reward = 0.
             total_intrinsic_reward = 0.
             total_real_reward = 0.
             total_reward = 0.
             for i in range(max_iter):
                 a = agent.act(s)
 
-                next_s, real_r, done, _ = env.step(a)
-                r = reward_model(torch.Tensor(s)).item()
+                next_s, default_r, done, _ = env.step(a)
+                real_r, done = sr_transform(default_r, done)
+                r = lr_transform.model(torch.from_numpy(s)).item()
+
+                total_default_reward += default_r
                 total_real_reward += real_r
                 total_intrinsic_reward += r
 
-                reward = 0.1 * (r + 1) + 10. * real_r
+                reward = 0.1 * r + 10. * real_r
 
                 total_reward += reward
 
-                agent.train_step(s, a, next_s, reward)
+                agent.append_reward(reward)
 
                 s = next_s
 
@@ -167,14 +173,24 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                 if done:
                     break
             
-            loss = agent.train_end(s)
-            print('Episode/sample ({:4}/{}). Loss: {:9.3f}. Rs: {:3.0f}. Ri: {:7.2f}. R: {:4.2f}'.format(
-                episode, sample, loss, total_real_reward, total_intrinsic_reward, total_reward))
+            loss = agent.compute_loss()
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            loss = loss.item()
+
+
+
+            print('Episode/sample ({:4}/{}). Loss: {:9.3f}. Rd: {:3.0f}. Rs: {:3.0f}. Ri: {:7.2f}. R: {:4.2f}'.format(
+                episode, sample, loss, total_default_reward, total_real_reward, total_intrinsic_reward, total_reward))
             
             sample_losses.append(loss)
             sample_rewards.append(total_reward)
 
-        agent.save(dir, 'model_' + str(sample))
+
+        torch.save(agent.state_dict(), os.path.join(dir, 'agent_model.pt'))
 
         losses.append(sample_losses)
         rewards.append(sample_rewards)
