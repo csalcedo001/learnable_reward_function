@@ -17,6 +17,54 @@ from reward_transforms.learnable_reward_transform import LearnableRewardTransfor
 
 
 
+def episode_train_loss(env, agent, sr_transform, lr_transform):
+    sr_transform.reset()
+    lr_transform.reset()
+
+    agent.onpolicy_reset()
+    done = False
+
+    state = env.reset()
+
+    total_reward_r = 0.
+    total_reward_s = 0.
+    total_reward = 0.
+    for _ in range(max_iter):
+        action = agent.act(state)
+
+        next_state, reward_r, done, _ = env.step(action)
+        reward_s, done = sr_transform(reward_r, done)
+        reward = lr_transform(reward_s, state)
+
+
+        agent.append_reward(reward)
+
+        state = next_state
+
+        # Collect metrics
+        total_reward_r += reward_r
+        total_reward_s += reward_s
+        total_reward += reward.item()
+
+
+        if not no_render:
+            env.render()
+
+        if done:
+            break
+    
+    loss = agent.compute_loss()
+
+    metrics = {
+        'r_r': total_reward_r,
+        'r_s': total_reward_s,
+        'r': total_reward
+    }
+
+    return loss, metrics
+
+
+
 parser = get_parser()
 
 with exp.setup(parser, hash_ignore=['no_render']) as setup:
@@ -139,38 +187,18 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                 done = False
 
                 loss = 0.
+                reward_r = []
+                reward_s = []
                 for batch_i in range(batch_size):
-                    env = envs[batch_i]
-                    agent = agents[batch_i]
+                    loss_i, metrics_i = episode_train_loss(
+                        envs[batch_i],
+                        agents[batch_i],
+                        sr_transform,
+                        lr_transform)
 
-                    s = env.reset()
-
-                    agent.onpolicy_reset()
-
-                    total_reward = 0.
-                    for i in range(max_iter):
-                        a = agent.act(s)
-
-                        next_s, r, done, _ = env.step(a)
-                        r, done = sr_transform(r, done)
-
-                        total_reward += r
-                        
-                        r = lr_transform(r, s)
-
-
-                        agent.append_reward(r)
-
-                        s = next_s
-
-                        if not no_render:
-                            env.render()
-
-                        if done:
-                            break
-                    
-                    agent_loss = agent.compute_loss()
-                    loss += agent_loss
+                    loss += loss_i
+                    reward_r.append(metrics_i['r_r'])
+                    reward_s.append(metrics_i['r_s'])
 
                 loss /= batch_size
 
@@ -179,12 +207,17 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                 optimizer.step()
 
                 loss = loss.item()
+            
+                reward_r = np.array(reward_r, dtype=np.float32)
+                reward_s = np.array(reward_s, dtype=np.float32)
+                # print(reward_r)
+                # print(reward_s)
 
-                print('Ep/stage ({:4}/{:2}). Loss: {:9.3f}. Rs: {:3.0f}. Rp: {:4.0f}. Ri: {:4.2f}'.format(
-                    episode, stage, loss, total_reward, sr_transform.cumulative_reward, lr_transform.cumulative_ri))
+                print('Ep/stage ({:4}/{:2}). Loss: {:9.3f}. Rs: {:5.2f}. Rp: {:4.0f} Rp_min: {:2.0f} Rp_max: {:3.0f}. Ri: {:4.2f}'.format(
+                    episode, stage, loss, reward_s.mean(), reward_r.mean(), reward_r.min(), reward_r.max(), lr_transform.cumulative_ri / batch_size))
                 
                 sample_losses.append(loss)
-                sample_rewards.append(total_reward)
+                sample_rewards.append(reward_s)
             
             reward_pass_grade = 10 * (2 + stage)
 
