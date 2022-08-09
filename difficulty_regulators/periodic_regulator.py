@@ -9,11 +9,11 @@ class PeriodicRegulator(DifficultyRegulator):
         self.increment = increment
         self.maximum = maximum
 
-        self.threshold = None
+        self.threshold = initial
         self.step = 0
 
     def reset(self):
-        self.threshold = None
+        self.threshold = self.initial
         self.step = 0
     
     def report(self, data):

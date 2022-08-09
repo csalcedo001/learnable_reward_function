@@ -15,6 +15,7 @@ from reward_transforms.sparse_reward_transform import SparseRewardTransform
 from reward_transforms.learnable_reward_transform import LearnableRewardTransform
 from reward_transforms.reward_merge import RewardMerge
 from difficulty_regulators.periodic_regulator import PeriodicRegulator
+from difficulty_regulators.performance_based_regulator import PerformanceBasedRegulator
 
 
 
@@ -148,7 +149,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
 
 
-    batch_size = 16
+    batch_size = 4
 
 
     ### Setup for training
@@ -180,10 +181,9 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
         sr_transforms = []
 
         for i in range(batch_size):
-            difficulty_regulator = PeriodicRegulator(
+            difficulty_regulator = PerformanceBasedRegulator(
                 initial=10,
-                period=100,
-                increment=10,
+                period=20,
                 maximum=500
             )
 
@@ -225,6 +225,8 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
                 reward_s.append(metrics_i['r_s'])
                 reward_i.append(metrics_i['r_i'])
 
+                difficulty_regulators[batch_i].report(metrics_i['r_r'])
+
             loss /= batch_size
 
             optimizer.zero_grad()
@@ -238,7 +240,7 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
             reward_s = np.array(reward_s)
             reward_i = np.array(reward_i)
 
-            print('Ep/diff ({:4}/{:2}). Loss: {:9.3f}. Rs: {:5.2f}. Rp: {:4.0f} Rp_min: {:2.0f} Rp_max: {:3.0f}. Ri: {:4.2f}'.format(
+            print('Ep/diff ({:4}/{:5.1f}). Loss: {:9.3f}. Rs: {:5.2f}. Rp: {:4.0f} Rp_min: {:2.0f} Rp_max: {:3.0f}. Ri: {:4.2f}'.format(
                 episode, difficulty_regulators[-1].threshold, loss, reward_s.mean(), reward_r.mean(), reward_r.min(), reward_r.max(), reward_i.mean()))
             
             sample_losses.append(loss)
