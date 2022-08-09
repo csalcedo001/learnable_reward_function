@@ -14,7 +14,7 @@ from agents.reinforce import ReinforceAgent
 from reward_transforms.sparse_reward_transform import SparseRewardTransform
 from reward_transforms.learnable_reward_transform import LearnableRewardTransform
 from reward_transforms.reward_merge import RewardMerge
-from difficulty_regulator import PeriodicRegulator
+from difficulty_regulators.periodic_regulator import PeriodicRegulator
 
 
 
