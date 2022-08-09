@@ -201,18 +201,17 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
         sample_rewards = []
 
         for episode in range(episodes):
-            # Adjust environment difficulty
-            for i in range(batch_size):
-                reward_pass_grade = difficulty_regulators[i].next()
-                sr_transforms[i].set_reward_pass_grade(reward_pass_grade)
-            
-
             loss = 0.
 
             reward_r = []
             reward_s = []
             reward_i = []
             for batch_i in range(batch_size):
+                # Adjust environment difficulty
+                reward_pass_grade = difficulty_regulators[batch_i].adjust()
+                sr_transforms[batch_i].set_reward_pass_grade(reward_pass_grade)
+
+                # Run episode
                 loss_i, metrics_i = episode_train_loss(
                     envs[batch_i],
                     agents[batch_i],
