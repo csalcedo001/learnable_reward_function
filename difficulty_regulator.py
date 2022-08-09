@@ -13,14 +13,14 @@ class PeriodicRegulator:
         self.step = 0
     
     def next(self):
-        self.step += 1
-
-        if self.step == 1:
+        if self.step == 0:
             self.threshold = self.initial
         elif self.step % self.period == 0 and self.threshold < self.maximum:
             if self.threshold + self.period < self.maximum:
                 self.threshold += self.increment
             else:
                 self.threshold = self.maximum
+
+        self.step += 1
         
         return self.threshold
