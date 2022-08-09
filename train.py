@@ -11,10 +11,10 @@ from xlab.utils import merge_dicts
 from parser import get_parser
 from utils import get_config_from_string
 from agents.reinforce import ReinforceAgent
-from agents.reward_learning_agent import RewardLearningAgent
 from reward_transforms.sparse_reward_transform import SparseRewardTransform
 from reward_transforms.learnable_reward_transform import LearnableRewardTransform
 from reward_transforms.reward_merge import RewardMerge
+from difficulty_regulator import PeriodicRegulator
 
 
 
@@ -174,64 +174,76 @@ with exp.setup(parser, hash_ignore=['no_render']) as setup:
 
             if checkpoint != None:
                 agent.load(checkpoint_dir)
+        
+        
+        difficulty_regulators = []
+        sr_transforms = []
 
-        sample_losses = []
-        sample_rewards = []
+        for i in range(batch_size):
+            difficulty_regulator = PeriodicRegulator(
+                initial=10,
+                period=100,
+                increment=10,
+                maximum=500
+            )
 
-        reward_pass_grade = 10
-        for stage in range(20):
+            reward_pass_grade = difficulty_regulator.initial
             sr_transform = SparseRewardTransform(
                 reward_pass_grade=reward_pass_grade,
                 max_timesteps=500
             )
 
-            for episode in range(episodes):
-                sr_transform.reset()
+            difficulty_regulators.append(difficulty_regulator)
+            sr_transforms.append(sr_transform)
 
-                done = False
 
-                loss = 0.
-                reward_r = []
-                reward_s = []
-                reward_i = []
-                for batch_i in range(batch_size):
-                    loss_i, metrics_i = episode_train_loss(
-                        envs[batch_i],
-                        agents[batch_i],
-                        sr_transform,
-                        lr_transform,
-                        reward_merge)
+        sample_losses = []
+        sample_rewards = []
 
-                    loss += loss_i
-
-                    reward_r.append(metrics_i['r_r'])
-                    reward_s.append(metrics_i['r_s'])
-                    reward_i.append(metrics_i['r_i'])
-
-                loss /= batch_size
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                loss = loss.item()
+        for episode in range(episodes):
+            # Adjust environment difficulty
+            for i in range(batch_size):
+                reward_pass_grade = difficulty_regulators[i].next()
+                sr_transforms[i].set_reward_pass_grade(reward_pass_grade)
             
-                reward_r = np.array(reward_r)
-                reward_s = np.array(reward_s)
-                reward_i = np.array(reward_i)
-                # print(reward_r)
-                # print(reward_s)
 
-                print('Ep/stage ({:4}/{:2}). Loss: {:9.3f}. Rs: {:5.2f}. Rp: {:4.0f} Rp_min: {:2.0f} Rp_max: {:3.0f}. Ri: {:4.2f}'.format(
-                    episode, stage, loss, reward_s.mean(), reward_r.mean(), reward_r.min(), reward_r.max(), reward_i.mean()))
-                
-                sample_losses.append(loss)
-                sample_rewards.append(reward_s)
+            loss = 0.
+
+            reward_r = []
+            reward_s = []
+            reward_i = []
+            for batch_i in range(batch_size):
+                loss_i, metrics_i = episode_train_loss(
+                    envs[batch_i],
+                    agents[batch_i],
+                    sr_transforms[batch_i],
+                    lr_transform,
+                    reward_merge)
+
+                loss += loss_i
+
+                reward_r.append(metrics_i['r_r'])
+                reward_s.append(metrics_i['r_s'])
+                reward_i.append(metrics_i['r_i'])
+
+            loss /= batch_size
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+
+            # Print results
+            loss = loss.item()
+            reward_r = np.array(reward_r)
+            reward_s = np.array(reward_s)
+            reward_i = np.array(reward_i)
+
+            print('Ep/diff ({:4}/{:2}). Loss: {:9.3f}. Rs: {:5.2f}. Rp: {:4.0f} Rp_min: {:2.0f} Rp_max: {:3.0f}. Ri: {:4.2f}'.format(
+                episode, difficulty_regulators[-1].threshold, loss, reward_s.mean(), reward_r.mean(), reward_r.min(), reward_r.max(), reward_i.mean()))
             
-            reward_pass_grade = 10 * (2 + stage)
-
-            torch.save(agent.state_dict(), os.path.join(dir, 'agent_model_' + str(stage) + '.pt'))
-            torch.save(lr_transform.state_dict(), os.path.join(dir, 'reward_model_' + str(stage) + '.pt'))
+            sample_losses.append(loss)
+            sample_rewards.append(reward_s)
         
 
         torch.save(agent.state_dict(), os.path.join(dir, 'agent_model.pt'))

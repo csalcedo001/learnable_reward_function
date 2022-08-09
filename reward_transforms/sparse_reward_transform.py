@@ -28,3 +28,6 @@ class SparseRewardTransform():
     def reset(self):
         self.timestep = 0
         self.cumulative_reward = 0
+    
+    def set_reward_pass_grade(self, reward_pass_grade):
+        self.reward_pass_grade = reward_pass_grade
